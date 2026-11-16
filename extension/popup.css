@@ -7,36 +7,79 @@
           --accent: #6a95ff; --chip: #2e2e34; --ok: #37d06f; --danger: #ff6b6b; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; width: 360px; padding: 10px 12px 8px; background: var(--bg); color: var(--fg);
+body { margin: 0; width: 380px; padding: 10px 12px 8px; background: var(--bg); color: var(--fg);
        font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
 header { display: flex; align-items: center; gap: 8px; }
 .title { font-weight: 600; font-size: 14px; }
-.hub { flex: 1; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.hub { flex: 1; min-width: 0; color: var(--muted); font-size: 11px; white-space: nowrap;
+       overflow: hidden; text-overflow: ellipsis; }
 .hub::before { content: "●"; margin-right: 4px; color: var(--muted); }
 .hub.on::before { color: var(--ok); }
 h3 { margin: 12px 0 2px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
      color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 4px 0; }
 .empty[hidden] { display: none; }
+
 .row { padding: 7px 0; border-top: 1px solid var(--line); }
 .row:first-child { border-top: 0; }
 .top { display: flex; align-items: center; gap: 8px; }
-.icon { width: 16px; height: 16px; flex: none; border-radius: 3px; }
 .info { flex: 1; min-width: 0; cursor: pointer; }
-.info:hover .name { text-decoration: underline; }
+.info:hover .name { text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 2px; }
 .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#recent .name { font-weight: 500; color: var(--muted); }
+.recent .name { font-weight: 500; color: var(--muted); }
 .sub { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Favicon, or a letter tile when there's none. */
+.appicon { flex: none; width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center;
+           background: var(--chip); color: var(--muted); font-size: 11px; font-weight: 600; overflow: hidden; }
+.appicon.img { background: transparent; }
+.appicon img { width: 16px; height: 16px; object-fit: contain; }
+.recent .appicon img { opacity: .75; }
+
+.btns { display: flex; gap: 2px; flex: none; }
 button { font: inherit; border: 0; background: transparent; color: var(--fg); border-radius: 6px;
-         cursor: pointer; min-width: 26px; height: 26px; padding: 0 6px; }
+         cursor: pointer; min-width: 26px; height: 26px; padding: 0 5px; }
 button:hover { background: var(--chip); }
 button[hidden] { display: none; }
-header button { background: var(--chip); }
-.vol { display: flex; align-items: center; gap: 6px; margin: 2px 0 0 24px; }
-.vol[hidden] { display: none; }
-input[type=range] { flex: 1; accent-color: var(--accent); min-width: 0; }
-.pct { width: 34px; text-align: right; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.mute.on { color: var(--danger); }
+button svg { width: 15px; height: 15px; display: block; margin: auto; }
+button.wide { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; font-size: 12px; background: var(--chip); }
+button.wide svg { margin: 0; }
+button.wide[hidden] { display: none; }
+
+/* Volume folded behind the speaker button. */
+.volbtn { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); }
+.volbtn .lvl { font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.volbtn.on, .mute.on { color: var(--danger); }
+.volbtn.open { background: var(--chip); color: var(--fg); }
+/* A tab's volume: one floating panel with a vertical slider. */
+.volpop { position: fixed; z-index: 20; width: 48px; padding: 8px 0 6px; display: flex; flex-direction: column;
+          align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--line);
+          border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
+.volpop[hidden] { display: none; }
+.volpop .pct { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; min-height: 14px; }
+.volpop .vslider { writing-mode: vertical-lr; direction: rtl; width: 24px; height: 110px; margin: 0;
+                   accent-color: var(--accent); cursor: pointer; }
+.volpop .vslider[hidden] { display: none; }
+
+/* Playback position: thin bar, thumb on hover, drag to seek. */
+.prog { --bar: var(--accent); display: flex; align-items: center; gap: 8px; margin: 2px 0 0 28px;
+        font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.prog[hidden] { display: none; }
+.prog .t { min-width: 30px; }
+.prog .t1 { text-align: right; }
+.recent .prog { --bar: var(--muted); }
+.seek { flex: 1; min-width: 0; -webkit-appearance: none; appearance: none; height: 14px;
+        background: transparent; cursor: pointer; margin: 0; }
+.seek::-webkit-slider-runnable-track { height: 3px; border-radius: 2px;
+  background: linear-gradient(var(--bar), var(--bar)) 0/var(--p, 0%) 100% no-repeat, var(--chip); }
+.seek::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--bar); margin-top: -4px; opacity: 0; transition: opacity .15s; }
+.prog:hover .seek::-webkit-slider-thumb, .seek:active::-webkit-slider-thumb { opacity: 1; }
+
+/* ✕ closes the tab; shown on hover. */
+.row .x { visibility: hidden; }
+.row:hover .x, .row .x:focus-visible { visibility: visible; }
+
 footer { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
          display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
 footer label { display: flex; align-items: center; gap: 6px; cursor: pointer; }

@@ -12,7 +12,7 @@ const REPORT_EVERY_MS = 1500;
 const RECENT_MINUTES = 10; // tabs with no player drop out of Recent after this
 const RECENT_CAP = 15;
 
-const DEFAULT_SETTINGS = { hub: true, onePlayer: false };
+const DEFAULT_SETTINGS = { onePlayer: false };
 
 let ws = null;
 let retryMs = 1000;
@@ -46,7 +46,8 @@ function browserKey() {
 function pageProbe() {
   return [...document.querySelectorAll("video, audio")]
     .filter(e => e.currentSrc || e.srcObject)
-    .map(e => ({ paused: e.paused || e.ended, volume: e.volume, played: e.currentTime > 0, muted: e.muted }));
+    .map(e => ({ paused: e.paused || e.ended, volume: e.volume, played: e.currentTime > 0, muted: e.muted,
+                 time: e.currentTime, duration: Number.isFinite(e.duration) ? e.duration : 0 }));
 }
 
 function pageSetPlaying(play) {
@@ -57,21 +58,101 @@ function pageSetPlaying(play) {
   if (best) best.play().catch(() => {});
 }
 
+// Runs in the page's own world (MAIN), so it can reach a site's player.
 function pageSetVolume(v) {
-  window.__audioHubVolume = v;
+  // YouTube keeps its own saved volume and puts it back on every video; set it
+  // there, so YouTube and the extension agree and nothing fights over the level.
+  const yt = document.getElementById("movie_player");
+  if (yt && typeof yt.setVolume === "function") {
+    yt.setVolume(Math.round(v * 100));
+    window.__audioHubVolume = null;
+    return;
+  }
+  // 100% is the page's normal level: drop the override instead of enforcing it.
+  window.__audioHubVolume = v < 1 ? v : null;
   document.querySelectorAll("video, audio").forEach(e => { e.volume = v; });
   if (!window.__audioHubHooked) {
     window.__audioHubHooked = true;
-    // Keep the chosen level for videos that start later (next video, playlists).
+    // Keep a lowered level for videos that start later (next video, playlists).
     document.addEventListener("play", e => {
       if (window.__audioHubVolume != null && "volume" in e.target) e.target.volume = window.__audioHubVolume;
     }, true);
   }
 }
 
-async function inPage(tabId, func, args = []) {
+// Scroll the media that's playing (else the one played last) into view and flash it.
+function pageReveal() {
+  const els = [...document.querySelectorAll("video, audio")]
+    .filter(e => (e.currentSrc || e.srcObject) && e.getClientRects().length);
+  if (!els.length) return false;
+  const el = els.find(e => !e.paused && !e.muted) || els.find(e => !e.paused)
+    || els.sort((a, b) => b.currentTime - a.currentTime)[0];
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  const r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return true; // an <audio> without controls: nothing to outline
+  const box = document.createElement("div");
+  Object.assign(box.style, {
+    position: "absolute", left: `${r.left + scrollX}px`, top: `${r.top + scrollY}px`,
+    width: `${r.width}px`, height: `${r.height}px`, zIndex: 2147483647, pointerEvents: "none",
+    borderRadius: "8px", boxShadow: "0 0 0 3px #6c8cff, 0 0 24px 6px rgba(108,140,255,.6)",
+    transition: "opacity .6s", opacity: "1",
+  });
+  document.documentElement.appendChild(box);
+  // The scroll above is smooth: follow the element until it settles.
+  let frames = 0;
+  (function follow() {
+    const q = el.getBoundingClientRect();
+    box.style.left = `${q.left + scrollX}px`; box.style.top = `${q.top + scrollY}px`;
+    if (++frames < 60) requestAnimationFrame(follow);
+  })();
+  setTimeout(() => { box.style.opacity = "0"; }, 1200);
+  setTimeout(() => box.remove(), 1900);
+  return true;
+}
+
+// Seek the media pageReveal/pageSetPlaying would pick: the one playing, else the furthest along.
+function pageSeek(t) {
+  const els = [...document.querySelectorAll("video, audio")]
+    .filter(e => (e.currentSrc || e.srcObject) && Number.isFinite(e.duration) && e.duration > 0);
+  const el = els.find(e => !e.paused && !e.muted) || els.find(e => !e.paused)
+    || els.sort((a, b) => b.currentTime - a.currentTime)[0];
+  if (el) el.currentTime = Math.max(0, Math.min(t, el.duration));
+}
+
+// Runs in the page's own world (MAIN): what Next / Previous can do in this frame.
+function pageTrackCaps() {
+  const h = window.__audioHubMS || {};
+  const yt = document.querySelector(".ytp-next-button");
+  const player = document.getElementById("movie_player");
+  return {
+    next: !!h.nexttrack || !!(yt && yt.offsetParent),
+    prev: !!h.previoustrack,
+    // YouTube evens out loudness, so its <video> volume isn't the level the user set.
+    volume: player && typeof player.getVolume === "function" ? player.getVolume() / 100 : null,
+  };
+}
+
+// Next / Previous: the page's own handler; else YouTube's Next button; Previous
+// without a handler restarts the track, as most players do.
+function pageTrack(dir) {
+  const h = window.__audioHubMS || {};
+  const action = dir === "next" ? "nexttrack" : "previoustrack";
+  if (h[action]) {
+    try { h[action]({ action }); return; } catch {}
+  }
+  if (dir === "next") {
+    const b = document.querySelector(".ytp-next-button");
+    if (b && b.offsetParent) b.click();
+    return;
+  }
+  const els = [...document.querySelectorAll("video, audio")].filter(e => e.currentSrc || e.srcObject);
+  const el = els.find(e => !e.paused) || els.sort((a, b) => b.currentTime - a.currentTime)[0];
+  if (el) el.currentTime = 0;
+}
+
+async function inPage(tabId, func, args = [], world = "ISOLATED") {
   try {
-    const results = await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func, args });
+    const results = await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func, args, world });
     return results.map(r => r.result).filter(Boolean);
   } catch {
     return []; // chrome:// pages, the Web Store, discarded tabs...
@@ -86,7 +167,12 @@ async function mediaState(tabId) {
   if (!els.length) return { hasMedia: false };
   const playing = els.filter(e => !e.paused);
   const main = playing[0] || els.find(e => e.played) || els[0];
-  return { hasMedia: true, paused: playing.length === 0, volume: main.volume };
+  const caps = await inPage(tabId, pageTrackCaps, [], "MAIN");
+  const siteVolume = caps.find(c => c.volume != null)?.volume;
+  return { hasMedia: true, paused: playing.length === 0, volume: siteVolume ?? main.volume,
+           position: main.time, duration: main.duration, // duration 0: live stream or unknown
+           canNext: caps.some(c => c.next),
+           canPrev: true }; // without a page handler, Previous restarts the track
 }
 
 function site(url) {
@@ -160,8 +246,34 @@ async function act(c) {
       if (state.hasMedia) await inPage(id, pageSetPlaying, [state.paused]);
       break;
     }
+    case "play": { // play for sure: the hub's Resume all
+      const state = await mediaState(id);
+      if (state.hasMedia && state.paused) await inPage(id, pageSetPlaying, [true]);
+      break;
+    }
+    case "pause": { // pause for sure; playpause above is a toggle
+      const state = await mediaState(id);
+      if (state.hasMedia) {
+        await inPage(id, pageSetPlaying, [false]);
+      } else {
+        // Web Audio / games make sound without a media element: nothing to
+        // pause, so mute the tab to silence it.
+        await chrome.tabs.update(id, { muted: true });
+      }
+      break;
+    }
+    case "next":
+    case "prev":
+      await inPage(id, pageTrack, [c.cmd], "MAIN");
+      break;
+    case "seek":
+      await inPage(id, pageSeek, [Math.max(0, Number(c.value) || 0)]);
+      break;
     case "volume":
-      await inPage(id, pageSetVolume, [Math.max(0, Math.min(1, Number(c.value)))]);
+      await inPage(id, pageSetVolume, [Math.max(0, Math.min(1, Number(c.value)))], "MAIN");
+      break;
+    case "close": // ✕ in the app or popup; Ctrl+Shift+T brings it back
+      await chrome.tabs.remove(id);
       break;
     case "dismiss":
       await ready;
@@ -169,8 +281,14 @@ async function act(c) {
       saveMeta();
       break;
     case "focus": {
-      const tab = await chrome.tabs.update(id, { active: true });
-      await chrome.windows.update(tab.windowId, { focused: true });
+      // Window first, tab second: switching tabs in a window that isn't showing yet
+      // (minimized, covered) leaves a stale frame up until Chrome repaints it.
+      const tab = await chrome.tabs.get(id);
+      const win = await chrome.windows.get(tab.windowId);
+      await chrome.windows.update(tab.windowId,
+        win.state === "minimized" ? { focused: true, state: "normal" } : { focused: true });
+      await chrome.tabs.update(id, { active: true });
+      await inPage(id, pageReveal);
       break;
     }
     case "solo": // keep this tab, pause the rest
@@ -178,6 +296,12 @@ async function act(c) {
       break;
     case "pauseAll":
       await pauseAll();
+      break;
+    case "resetAll": // the popup's Reset: every listed tab back to 100% and unmuted
+      await Promise.all((await collect()).map(async t => {
+        if (t.muted) await chrome.tabs.update(t.id, { muted: false });
+        if (t.hasMedia && (t.volume ?? 1) < 1) await inPage(t.id, pageSetVolume, [1], "MAIN");
+      }));
       break;
   }
   reportSoon();
@@ -216,39 +340,51 @@ function reportSoon() {
 
 function hubConnected() { return !!ws && ws.readyState === WebSocket.OPEN; }
 
+// Connected to the desktop app (only ever on 127.0.0.1), the extension always shares
+// its tabs; there's no switch for it. The popup works on its own when the app is off.
+const VERSION = chrome.runtime.getManifest().version;
+
+function startReporting() {
+  clearInterval(reportTimer);
+  if (!hubConnected()) return;
+  scanExistingTabs().then(report);
+  reportTimer = setInterval(report, REPORT_EVERY_MS); // also keeps the worker awake
+}
+
+// A new tab in the window you're using, scrolled to Audio Hub, rather than whatever
+// window a command-line launch would pick.
+async function openExtensionsPage() {
+  const win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null);
+  const tab = await chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}`,
+                                         ...(win ? { windowId: win.id } : {}) });
+  await chrome.windows.update(tab.windowId, { focused: true });
+}
+
 async function connect() {
   await ready;
-  if (!settings.hub) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   const sock = ws = new WebSocket(HUB_URL);
-  sock.onopen = async () => {
+  sock.onopen = () => {
     retryMs = 1000;
-    sock.send(JSON.stringify({ type: "hello", browser: browserKey() }));
-    await scanExistingTabs();
-    report();
-    clearInterval(reportTimer);
-    reportTimer = setInterval(report, REPORT_EVERY_MS); // also keeps the worker awake while connected
+    sock.send(JSON.stringify({ type: "hello", browser: browserKey(), version: VERSION,
+                               accepts: ["reload", "openExtensionsPage"] }));
+    startReporting();
   };
   sock.onmessage = e => {
-    try { act(JSON.parse(e.data)); } catch {}
+    let c;
+    try { c = JSON.parse(e.data); } catch { return; }
+    if (c.cmd === "reload") chrome.runtime.reload();  // the app's "Update now": re-read this folder
+    else if (c.cmd === "openExtensionsPage") openExtensionsPage();
+    else act(c).catch(() => {});
   };
   sock.onclose = () => {
     if (ws !== sock) return;
     clearInterval(reportTimer);
     ws = null;
-    if (settings.hub) {
-      setTimeout(connect, retryMs);
-      retryMs = Math.min(retryMs * 2, 30000);
-    }
+    setTimeout(connect, retryMs);
+    retryMs = Math.min(retryMs * 2, 30000);
   };
   sock.onerror = () => {}; // onclose follows and retries
-}
-
-function disconnect() {
-  clearInterval(reportTimer);
-  const sock = ws;
-  ws = null;
-  if (sock) sock.close();
 }
 
 // ---- messages from the popup ----------------------------------------------------------
@@ -263,7 +399,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     } else if (msg.type === "settings") {
       settings = { ...settings, ...msg.value };
       await chrome.storage.sync.set(settings);
-      if (settings.hub) connect(); else disconnect();
       reply({ settings });
     }
   })();
@@ -294,6 +429,15 @@ chrome.commands.onCommand.addListener(cmd => {
 chrome.alarms.create("audiohub-reconnect", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener(connect);
 chrome.runtime.onStartup.addListener(connect);
-chrome.runtime.onInstalled.addListener(() => { connect(); scanExistingTabs(); updateBadge(); });
+chrome.runtime.onInstalled.addListener(() => { connect(); scanExistingTabs(); hookExistingTabs(); updateBadge(); });
+
+// Tabs open before install/reload never ran the Next/Previous hook; pages that set
+// their handlers again (YouTube does on each video) are picked up from then on.
+async function hookExistingTabs() {
+  const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"], discarded: false });
+  await Promise.all(tabs.map(t => chrome.scripting.executeScript({
+    target: { tabId: t.id, allFrames: true }, files: ["mediasession-hook.js"], world: "MAIN",
+  }).catch(() => {})));
+}
 connect();
 updateBadge();

@@ -6,11 +6,13 @@ Rules:
   * still registered as a player (paused)  -> stays while the player exists, can resume
   * no player, app still running (e.g. closed browser tab) -> drops after `timeout`
 - App closed (no process, no player, no stream) -> removed at once.
+- Muted app with a live stream -> stays in Recent ("muted"), however long ago it played.
 - Dismissed (x) -> hidden until it plays again.
 
 Browser tabs (reported by the browser extension) are child rows of their browser:
-they follow the same rules, are removed when the tab closes, and are listed right
-under their browser when it's in the same section.
+they follow the same rules and are removed when the tab closes. In the view, a
+browser and its tabs form one group (see Tracker.view), so a paused tab stays
+with its browser instead of dropping into the machine-wide Recent.
 """
 
 PLAY_HOLD = 2.0     # seconds of silence before something counts as stopped (gaps between songs)
@@ -88,7 +90,10 @@ class Tracker:
         r.site = t["site"]
         r.audio = None
         self._set_playing(r, bool(t["playing"]), now)
-        r.media = ({"status": "playing" if r.playing else "paused", "title": "", "artist": ""}
+        r.media = ({"status": "playing" if r.playing else "paused", "title": "", "artist": "",
+                    "position": t.get("position"), "duration": t.get("duration"),
+                    "seekable": t.get("duration") is not None, "position_at": t.get("position_at"),
+                    "can_next": t.get("can_next", False), "can_prev": t.get("can_prev", False)}
                    if t["has_media"] else None)
         r.volume, r.muted = t["volume"], t["muted"]
 
@@ -105,44 +110,88 @@ class Tracker:
             if muted is not None:
                 r.muted = muted
 
-    def view(self, now):
+    def view(self, now, keep=frozenset(), hide=frozenset()):
+        """(playing, recent) lists of rows for the UI.
+
+        keep: keys that stay listed whatever their age (pinned apps); the Recent
+        cap never drops them. hide: keys that never enter Recent (Windows' own
+        processes), though they still show while playing.
+
+        Each browser with tabs is one group row: {"group": True, "tabs": [...],
+        "recentTabs": [...]}. The group sits in Now playing when the browser or
+        any of its tabs plays, and then carries its paused tabs in "recentTabs";
+        otherwise it sits in Recent with its recent tabs in "tabs".
+        """
         playing, recent = [], []
         for r in self.rows.values():
             if r.playing:
                 playing.append(r)
                 continue
+            if r.key in keep:
+                recent.append(r)
+                continue
+            if r.key in hide:
+                continue
             if r.dismissed_at is not None and (r.last_played or 0) <= r.dismissed_at:
                 continue
             if r.media is not None:
+                recent.append(r)
+            elif r.audio is not None and r.muted:
+                # Muted, it can never make sound to count as playing: keep it in
+                # sight, or there's no way to unmute it from here.
                 recent.append(r)
             elif r.last_played is not None and now - r.last_played < self.recent_timeout:
                 recent.append(r)
         # Now playing keeps the order things started in, so rows don't jump under the mouse.
         by_start = lambda r: (r.play_started or 0, r.key)  # noqa: E731
         by_recent = lambda r: -(r.last_played or float("-inf"))  # noqa: E731
-        return (self._section(playing, by_start, None, now),
-                self._section(recent, by_recent, self.recent_cap, now))
 
-    def _section(self, rows, order, cap, now):
-        """Sort, then put each browser's tabs right under it when both are in this section."""
-        parents_here = {r.key for r in rows if r.parent is None}
-        tops = sorted((r for r in rows if r.parent is None or r.parent not in parents_here), key=order)
-        if cap is not None:
-            tops = tops[:cap]
-        out = []
-        for top in tops:
-            out.append(self._row(top, now, orphan=top.parent is not None))
-            if top.parent is None:
-                kids = sorted((r for r in rows if r.parent == top.key), key=order)
-                out.extend(self._row(k, now, orphan=False) for k in kids)
-        return out
+        tabs = {}  # browser key -> ([playing tabs], [recent tabs])
+        for i, lst in enumerate((playing, recent)):
+            for r in lst:
+                if r.parent is not None:
+                    tabs.setdefault(r.parent, ([], []))[i].append(r)
+        top_playing = [(by_start(r), self._row(r, now)) for r in playing
+                       if r.parent is None and r.key not in tabs]
+        top_recent = [(by_recent(r), self._row(r, now)) for r in recent
+                      if r.parent is None and r.key not in tabs]
+        for browser, (p_tabs, r_tabs) in tabs.items():
+            b = self.rows.get(browser)
+            p_tabs.sort(key=by_start)
+            r_tabs.sort(key=by_recent)
+            r_tabs = r_tabs[:self.recent_cap]
+            head = self._row(b, now) if b else self._head(browser, (p_tabs or r_tabs)[0], now)
+            head["group"] = True
+            if p_tabs or (b and b.playing):
+                head["tabs"] = [self._row(t, now) for t in p_tabs]
+                head["recentTabs"] = [self._row(t, now) for t in r_tabs]
+                starts = [by_start(t) for t in p_tabs] + ([by_start(b)] if b and b.playing else [])
+                top_playing.append((min(starts), head))
+            else:
+                head["tabs"] = [self._row(t, now) for t in r_tabs]
+                head["recentTabs"] = []
+                top_recent.append((min(by_recent(t) for t in r_tabs), head))
+        top_playing.sort(key=lambda x: x[0])
+        top_recent.sort(key=lambda x: x[0])
+        kept = [d for _, d in top_recent if d["key"] in keep]
+        others = [d for _, d in top_recent if d["key"] not in keep][:self.recent_cap]
+        return [d for _, d in top_playing], kept + others
 
     @staticmethod
-    def _row(r, now, orphan):
+    def _head(browser, tab, now):
+        """A group header for a browser that has no row of its own (no stream, no player)."""
+        return {"key": browser, "name": tab.parent_name or browser, "status": "stopped",
+                "title": "", "artist": "", "volume": None, "muted": False, "peak": 0.0,
+                "media": False, "ago": None, "parent": None}
+
+    @staticmethod
+    def _row(r, now):
         m = r.media or {}
         status = "playing" if r.playing else m.get("status", "stopped")
         if status == "playing" and not r.playing:
             status = "paused"
+        if status == "stopped" and r.muted and r.audio is not None:
+            status = "muted"
         return {
             "key": r.key,
             "name": r.name,
@@ -155,5 +204,17 @@ class Tracker:
             "media": r.media is not None,
             "ago": None if r.last_played is None else now - r.last_played,
             "parent": r.parent,
-            "parentName": r.parent_name if orphan else None,
+            "canNext": bool(m.get("can_next")),
+            "canPrev": bool(m.get("can_prev")),
+            **Tracker._progress(r, m, now),
         }
+
+    @staticmethod
+    def _progress(r, m, now):
+        """Playback position in seconds as of `now`, for the progress bar; None when unknown."""
+        pos, dur = m.get("position"), m.get("duration")
+        if pos is None or not dur:
+            return {"position": None, "duration": None, "seekable": False}
+        if r.playing and m.get("position_at") is not None:
+            pos += max(0.0, now - m["position_at"])
+        return {"position": min(pos, dur), "duration": dur, "seekable": bool(m.get("seekable"))}

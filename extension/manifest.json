@@ -1,25 +1,58 @@
 {
   "manifest_version": 3,
   "name": "Audio Hub",
-  "version": "0.2.0",
+  "version": "0.8.1",
   "description": "Every tab playing sound in one place: pause, mute and volume per tab. Also feeds the Audio Hub desktop app.",
   "minimum_chrome_version": "116",
-  "permissions": ["tabs", "scripting", "alarms", "storage"],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "tabs",
+    "scripting",
+    "alarms",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Audio Hub",
-    "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png" }
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png"
+    }
   },
-  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
   "commands": {
     "toggle-latest": {
-      "suggested_key": { "default": "Alt+Shift+P" },
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
       "description": "Play/pause the tab playing now, or the last one paused"
     },
     "pause-all": {
       "description": "Pause every tab"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "mediasession-hook.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    }
+  ]
 }
