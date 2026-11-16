@@ -2,7 +2,8 @@
 
 Faderly (formerly Audio Hub): one mixer for the sound on all machines. Windows only today; a Mac
 agent is planned, so the tracker stays platform-neutral and the wire state is a
-list of machines. User-facing docs live in `README.md`.
+list of machines. User-facing docs live in `README.md`; the Mac research and plan
+(parked until after the first Windows release) is in `docs/mac-plan.md`.
 
 ## Layout
 
