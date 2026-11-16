@@ -27,7 +27,7 @@ user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintyp
 user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
 
-TITLE = "Audio Hub mixer"
+TITLE = "Faderly mixer"
 GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW, WS_EX_APPWINDOW = 0x80, 0x40000
 

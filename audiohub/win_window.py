@@ -68,8 +68,8 @@ def main_window(key):
 
 
 # Windows itself, and us: "close" there would shut every File Explorer window, the
-# shell or Audio Hub. Their rows get no close.
-NEVER_CLOSE = {"explorer", "audiohub", "python", "pythonw", "dwm", "svchost", "audiodg",
+# shell or Faderly. Their rows get no close.
+NEVER_CLOSE = {"explorer", "audiohub", "faderly", "python", "pythonw", "dwm", "svchost", "audiodg",
                "shellexperiencehost", "startmenuexperiencehost", "searchhost",
                "systemsettings", "applicationframehost", "textinputhost"}
 

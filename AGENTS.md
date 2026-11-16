@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Audio Hub: one mixer for the sound on all machines. Windows only today; a Mac
+Faderly (formerly Audio Hub): one mixer for the sound on all machines. Windows only today; a Mac
 agent is planned, so the tracker stays platform-neutral and the wire state is a
 list of machines. User-facing docs live in `README.md`.
 
@@ -11,22 +11,23 @@ list of machines. User-facing docs live in `README.md`.
 - `audiohub/win_audio.py` — per-app sessions via pycaw. Must be imported from the hub worker thread (it sets `sys.coinit_flags` before comtypes import).
 - `audiohub/win_media.py` — media players via WinRT.
 - `audiohub/win_window.py` — "Show" on a row: raise an app's main window (ctypes, no COM).
-- `tools/make_icons.py` — draws the icon (extension PNGs + `tools/AudioHub.ico` for the exe). `build/` is gitignored, so tracked build inputs live in `tools/`.
+- `tools/make_icons.py` — draws the icon (extension PNGs + `tools/Faderly.ico` for the exe). `build/` is gitignored, so tracked build inputs live in `tools/`.
 - `audiohub/flyout.py` — tray left-click mixer: a frameless on-top window (`?flyout=1`) placed above the taskbar; the page reports `blur`/height through `js_api`.
 - `audiohub/app_names.py` — row names from Windows: shell Apps folder for media app ids, exe FileDescription for audio sessions, a running-exe match, then `tidy()`. `NICE_NAMES` in `win_audio.py` is only for short names (Chrome, not Google Chrome); don't add per-app fixes there.
 - `audiohub/single_instance.py` — one copy per port: a named mutex; a later launch sets a named event so the running copy shows its window, then exits. To run a second copy on purpose (dev, tests), use another `--port`.
-- `audiohub/extension_info.py` — the extension from the app's side: per-browser status (ok / missing / off / outdated) for the UI notes, the shipped version, and the stable folder to load unpacked (`%LOCALAPPDATA%\AudioHub\extension`, copied from the exe on every launch; the repo's `extension/` when run from source).
-- `audiohub/settings.py` — what persists: `%LOCALAPPDATA%\AudioHub\settings.json` (pins: key, name; default Chrome + Spotify). Tests must give hubs a temp `Settings(path)` (see `make_hub`), never the real file.
+- `audiohub/extension_info.py` — the extension from the app's side: per-browser status (ok / missing / outdated) for the UI notes, the shipped version, and the stable folder to load unpacked (`%LOCALAPPDATA%\Faderly\extension`, copied from the exe on every launch; the repo's `extension/` when run from source).
+- `audiohub/settings.py` — what persists: `%LOCALAPPDATA%\Faderly\settings.json` (pins: key, name; default Chrome + Spotify). Tests must give hubs a temp `Settings(path)` (see `make_hub`), never the real file.
 - `audiohub/tray.py` — tray icon, Startup-folder shortcut, autostart toggle.
 - `audiohub/web/index.html` — the whole UI (HTML+CSS+JS in one file).
 - `extension/` — Manifest V3 browser extension reporting per-tab audio. Reload it in the browser after any change.
 - `tests/` — unittest only, no pytest dependency.
+- **Naming**: the product is Faderly; the Python package stays `audiohub` (internal). Old names still matter in one place each: settings move from `%LOCALAPPDATA%\AudioHub` (`settings.default_path`), and the exe swaps the old `Audio Hub.lnk` Startup shortcut (`tray.migrate_autostart`, built exe only).
 
 ## Commands
 
 - Tests: `.venv\Scripts\python -m unittest discover -s tests` — all green is the bar for done.
-- Build the exe: `build.bat` → `dist\AudioHub.exe`. Requires: no `AudioHub.exe` process is running (the onefile bootloader locks the exe — `taskkill //PID <pid> //T //F` the whole tree first). Build is complete when PyInstaller prints `Building EXE ... completed successfully`.
-- Deploy after a code change: rebuild, then kill and relaunch the running instance (`cmd //c start "" dist\AudioHub.exe --tray`). The Desktop and Startup shortcuts point at the exe, so a rebuild is mandatory for changes to reach the running app.
+- Build the exe: `build.bat` → `dist\Faderly.exe`. Requires: no `Faderly.exe` process is running (the onefile bootloader locks the exe — `taskkill //PID <pid> //T //F` the whole tree first). Build is complete when PyInstaller prints `Building EXE ... completed successfully`.
+- Deploy after a code change: rebuild, then kill and relaunch the running instance (`cmd //c start "" dist\Faderly.exe --tray`). The Desktop and Startup shortcuts point at the exe, so a rebuild is mandatory for changes to reach the running app.
 
 ## Gotchas (cost time to rediscover)
 

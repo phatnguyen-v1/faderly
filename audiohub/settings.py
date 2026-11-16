@@ -1,4 +1,4 @@
-"""Settings the app keeps across restarts: %LOCALAPPDATA%\\AudioHub\\settings.json.
+"""Settings the app keeps across restarts: %LOCALAPPDATA%\\Faderly\\settings.json.
 
 pinned: [{key, name}] in pin order.
 """
@@ -14,7 +14,17 @@ DEFAULT_PINS = [{"key": "chrome", "name": "Chrome"}, {"key": "spotify", "name": 
 
 
 def default_path():
-    return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "AudioHub" / "settings.json"
+    base = Path(os.environ.get("LOCALAPPDATA", Path.home()))
+    path = base / "Faderly" / "settings.json"
+    old = base / "AudioHub" / "settings.json"  # the app was called Audio Hub before 0.9
+    if not path.exists() and old.exists():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(old.read_bytes())
+        except Exception:
+            log.exception("couldn't move settings from %s", old)
+            return old
+    return path
 
 
 class Settings:

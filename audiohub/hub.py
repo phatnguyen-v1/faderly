@@ -539,7 +539,7 @@ class Hub:
         runner = web.AppRunner(app)
         await runner.setup()
         await web.TCPSite(runner, host, port).start()
-        log.info("Audio Hub on http://%s:%s", host, port)
+        log.info("Faderly on http://%s:%s", host, port)
         if ready:
             ready()
         await self.poll()

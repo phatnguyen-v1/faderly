@@ -52,3 +52,41 @@ class TestCloseHandlers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRenameMigration(unittest.TestCase):
+    """Audio Hub was renamed Faderly: settings and autostart carry over."""
+
+    def test_settings_move_from_the_old_folder(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        from audiohub import settings
+        with tempfile.TemporaryDirectory() as d:
+            old = Path(d) / "AudioHub" / "settings.json"
+            old.parent.mkdir()
+            old.write_text('{"pinned": [{"key": "vlc", "name": "VLC"}]}', encoding="utf-8")
+            with mock.patch.dict(os.environ, {"LOCALAPPDATA": d}):
+                path = settings.default_path()
+                self.assertEqual(path, Path(d) / "Faderly" / "settings.json")
+                self.assertEqual(settings.Settings(path).pins(), [{"key": "vlc", "name": "VLC"}])
+
+    def test_old_startup_shortcut_is_replaced(self):
+        from audiohub import tray
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d:
+            new = Path(d) / "Faderly.lnk"
+            (Path(d) / "Audio Hub.lnk").write_text("old")
+            with mock.patch.object(tray, "startup_link", return_value=new),                     mock.patch.object(tray, "set_autostart") as make:
+                tray.migrate_autostart()
+            make.assert_called_once()
+            self.assertFalse((Path(d) / "Audio Hub.lnk").exists())
+
+    def test_nothing_to_migrate(self):
+        from audiohub import tray
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d,                 mock.patch.object(tray, "startup_link", return_value=Path(d) / "Faderly.lnk"),                 mock.patch.object(tray, "set_autostart") as make:
+            tray.migrate_autostart()
+        make.assert_not_called()

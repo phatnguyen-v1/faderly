@@ -1,6 +1,6 @@
-# Audio Hub
+# Faderly
 
-One mixer for the sound on all my machines. Windows only for now; the Mac agent comes later.
+One mixer for the sound on all my machines (formerly Audio Hub). Windows only for now; the Mac agent comes later.
 
 ## The mixer
 
@@ -27,19 +27,19 @@ Each row has the app's own icon and name (both from Windows), and:
 - **Click the name** to bring that app (or tab) to the front.
 - **✕** on hover: a tab closes at once (Ctrl+Shift+T brings it back). An app asks
   "Close?" first, then gets the same close request as its own ✕, so it can still ask
-  about unsaved work, and tray apps just hide. Audio Hub never force-quits anything.
+  about unsaved work, and tray apps just hide. Faderly never force-quits anything.
 
 In the header: **Pause all** (then **Resume all**, which resumes only what it paused) and
 **Reset volumes** (every app and tab back to 100% and unmuted; shown only when needed).
 
 ## Tray
 
-Audio Hub lives in the tray. **Left click** the icon for a compact mixer above the
+Faderly lives in the tray. **Left click** the icon for a compact mixer above the
 taskbar; it hides when you click elsewhere or press Esc. **Right click** for the menu:
-Open Audio Hub (the full window), Start with Windows, Quit. Closing the window keeps it in
+Open Faderly (the full window), Start with Windows, Quit. Closing the window keeps it in
 the tray; Quit ends it.
 
-Only one Audio Hub runs at a time: starting it again brings the running one to the front.
+Only one Faderly runs at a time: starting it again brings the running one to the front.
 
 ## Browser extension
 
@@ -51,7 +51,7 @@ Chrome, Edge, Brave and other Chromium browsers: open `chrome://extensions`, tur
 Developer mode, click **Load unpacked** and pick the extension folder:
 
 - from source: the `extension` folder of this repo;
-- with the built exe: `%LOCALAPPDATA%\AudioHub\extension` (the exe keeps it up to date).
+- with the built exe: `%LOCALAPPDATA%\Faderly\extension` (the exe keeps it up to date).
 
 The app tells you when a browser is open without the extension (with these steps and a
 button to its extensions page), and when the extension is older than the app's copy
@@ -66,7 +66,7 @@ It also works on its own, without the desktop app:
   can be given a key at `chrome://extensions/shortcuts`.
 
 While the desktop app runs, the extension sends it the tabs over `127.0.0.1:8765`; nothing
-leaves the PC. Only Audio Hub's own windows and browser extensions can connect; websites
+leaves the PC. Only Faderly's own windows and browser extensions can connect; websites
 are refused.
 
 - On YouTube, tab volume is YouTube's own volume. Elsewhere it sets the page's
@@ -85,14 +85,19 @@ py -3.12 -m venv .venv
 run.bat
 ```
 
-`pip install -e .` also works; it adds an `audiohub` command.
+`pip install -e .` also works; it adds a `faderly` command.
 
 Options (`python -m audiohub --help`): `--tray` runs in the background with the tray icon,
 `--autostart` registers it to start with Windows in tray mode, `--browser` opens the UI in
 the browser instead of a window, `--headless` runs only the server, `--recent-minutes N`
 changes the Recent timeout, `--port` (a second copy can run on another port).
 
-Settings (pins) are kept in `%LOCALAPPDATA%\AudioHub\settings.json`.
+Settings (pins) are kept in `%LOCALAPPDATA%\Faderly\settings.json`.
+
+**Upgrading from Audio Hub** (the old name): on its first start `Faderly.exe` moves the
+settings over from `%LOCALAPPDATA%\AudioHub` and replaces the old "Audio Hub" Startup
+shortcut with a Faderly one. Repoint any other shortcut you made at `Faderly.exe`, and
+update the extension (the app offers **Update now**). The old folder can then be deleted.
 
 ## Tests
 
@@ -106,9 +111,9 @@ Settings (pins) are kept in `%LOCALAPPDATA%\AudioHub\settings.json`.
 build.bat
 ```
 
-makes `dist\AudioHub.exe` (single windowed exe, no Python needed). Stop a running
-`AudioHub.exe` first; Windows locks the file while it runs. To make the built exe start
-with Windows: `dist\AudioHub.exe --autostart --tray`; the Startup shortcut then points at
+makes `dist\Faderly.exe` (single windowed exe, no Python needed). Stop a running
+`Faderly.exe` first; Windows locks the file while it runs. To make the built exe start
+with Windows: `dist\Faderly.exe --autostart --tray`; the Startup shortcut then points at
 the exe, not at Python. The icon is drawn by `tools\make_icons.py`.
 
 ## How it works

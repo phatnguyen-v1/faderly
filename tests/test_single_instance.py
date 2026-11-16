@@ -1,4 +1,4 @@
-"""One Audio Hub per port: a second launch finds the lock taken and signals the first."""
+"""One Faderly per port: a second launch finds the lock taken and signals the first."""
 import threading
 import unittest
 

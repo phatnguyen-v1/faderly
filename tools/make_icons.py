@@ -1,6 +1,6 @@
-"""Draw the Audio Hub icon: three mixer faders on a blue rounded square.
+"""Draw the Faderly icon: three mixer faders on a blue rounded square.
 
-Writes extension/icons/{16,32,48,128}.png and tools/AudioHub.ico (for the exe).
+Writes extension/icons/{16,32,48,128}.png and tools/Faderly.ico (for the exe).
 Run from the repo root: .venv\\Scripts\\python tools\\make_icons.py
 """
 from pathlib import Path
@@ -49,7 +49,7 @@ def main():
     for size in (16, 32, 48, 128):
         draw(size).save(out / f"{size}.png")
     big = draw(256)
-    big.save(ROOT / "tools" / "AudioHub.ico",
+    big.save(ROOT / "tools" / "Faderly.ico",
              sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
              append_images=[draw(n) for n in (16, 24, 32, 48, 64, 128)])
     print("icons written")

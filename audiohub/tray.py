@@ -18,7 +18,25 @@ log = logging.getLogger("audiohub")
 def startup_link():
     folder = (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows"
               / "Start Menu" / "Programs" / "Startup")
-    return folder / "Audio Hub.lnk"
+    return folder / "Faderly.lnk"
+
+
+def _old_startup_link():
+    return startup_link().with_name("Audio Hub.lnk")  # before the rename to Faderly
+
+
+def migrate_autostart():
+    """The app was called Audio Hub: swap its Startup shortcut for a Faderly one
+    (same options, pointing at this program), so autostart keeps working."""
+    old = _old_startup_link()
+    if not old.exists():
+        return
+    try:
+        set_autostart(True, ["--tray"], target=_autostart_target())
+        old.unlink()
+        log.info("autostart moved from %s to %s", old.name, startup_link().name)
+    except Exception:
+        log.exception("couldn't move the old autostart shortcut")
 
 
 def autostart_registered():
@@ -118,13 +136,13 @@ def run_tray(url, extra_args=(), on_open=None, on_quit=None, on_click=None):
     menu = pystray.Menu(
         # pystray runs the default item on a left click; hidden, it's only that.
         pystray.MenuItem("Mixer", click, default=True, visible=False),
-        pystray.MenuItem("Open Audio Hub", open_app),
+        pystray.MenuItem("Open Faderly", open_app),
         pystray.MenuItem("Start with Windows", toggle_autostart,
                          checked=lambda item: autostart_registered()),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", quit_app),
     )
-    pystray.Icon("AudioHub", _icon_image(), "Audio Hub", menu).run()
+    pystray.Icon("Faderly", _icon_image(), "Faderly", menu).run()
 
 
 def start_tray_thread(url, extra_args=(), on_open=None, on_quit=None, on_click=None):

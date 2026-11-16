@@ -66,7 +66,7 @@ def _hide_to_tray(window):
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="audiohub")
+    ap = argparse.ArgumentParser(prog="faderly")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--recent-minutes", type=float, default=10,
@@ -76,7 +76,7 @@ def main():
     ap.add_argument("--tray", action="store_true",
                     help="run in the background with a tray icon: left click for the mixer, right click to open the app")
     ap.add_argument("--autostart", action="store_true",
-                    help="register Audio Hub to start with Windows (in tray mode), then exit")
+                    help="register Faderly to start with Windows (in tray mode), then exit")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO,
@@ -85,22 +85,28 @@ def main():
     if args.autostart:
         from .tray import _autostart_target, set_autostart
         set_autostart(True, sys.argv[1:], target=_autostart_target())
-        print("Audio Hub will start with Windows (in the tray).")
+        print("Faderly will start with Windows (in the tray).")
         return
 
     from . import single_instance
     if not single_instance.acquire(args.port):
         # Already running: bring that copy's window forward instead of starting another.
         if not single_instance.show_existing(args.port):
-            log.warning("Audio Hub is already running but didn't answer")
+            log.warning("Faderly is already running but didn't answer")
         return
+
+    if getattr(sys, "frozen", False):
+        # The built exe used to be AudioHub.exe: carry its Startup shortcut over. Only the
+        # exe does this, so running from source never repoints autostart at Python.
+        from .tray import migrate_autostart
+        migrate_autostart()
 
     ready, failed = threading.Event(), []
     worker = threading.Thread(target=serve, args=(args, ready, failed), daemon=True)
     worker.start()
     ready.wait()
     if failed:
-        raise SystemExit(f"Audio Hub failed to start: {failed[0]!r}")
+        raise SystemExit(f"Faderly failed to start: {failed[0]!r}")
 
     url = f"http://{args.host}:{args.port}/"
     if args.browser:
@@ -111,7 +117,7 @@ def main():
             import webview
             from . import tray
             from .flyout import TITLE, WIDTH, Flyout, FlyoutApi
-            window = webview.create_window("Audio Hub", url, width=440, height=680,
+            window = webview.create_window("Faderly", url, width=440, height=680,
                                            min_size=(340, 400), hidden=args.tray)
             if args.tray:
                 window.events.closing += _hide_to_tray

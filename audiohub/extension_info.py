@@ -46,13 +46,13 @@ def extension_dir():
     """The folder to load in the browser ("Load unpacked").
 
     From source that's the repo's extension/. The built exe carries a copy and
-    keeps it at %LOCALAPPDATA%\\AudioHub\\extension, refreshed every launch, so the
+    keeps it at %LOCALAPPDATA%\\Faderly\\extension, refreshed every launch, so the
     path stays put and "Update now" in the app picks up the new files.
     """
     src = _source_dir()
     if not getattr(sys, "frozen", False):
         return src
-    dest = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "AudioHub" / "extension"
+    dest = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Faderly" / "extension"
     try:
         shutil.copytree(src, dest, dirs_exist_ok=True)
     except Exception:

@@ -1,10 +1,10 @@
-// Audio Hub browser extension.
+// Faderly browser extension.
 //
 // Works on its own: the toolbar popup lists tabs playing sound (Now playing / Recent)
 // with pause, mute and volume; there are keyboard shortcuts, a badge with the number
 // of tabs playing, and an option to let only one tab play at a time.
 //
-// When the Audio Hub desktop app is running it also reports the tabs there
+// When the Faderly desktop app is running it also reports the tabs there
 // (ws://127.0.0.1:8765/ext) and carries out the app's commands.
 
 const HUB_URL = "ws://127.0.0.1:8765/ext";
@@ -351,7 +351,7 @@ function startReporting() {
   reportTimer = setInterval(report, REPORT_EVERY_MS); // also keeps the worker awake
 }
 
-// A new tab in the window you're using, scrolled to Audio Hub, rather than whatever
+// A new tab in the window you're using, scrolled to Faderly, rather than whatever
 // window a command-line launch would pick.
 async function openExtensionsPage() {
   const win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null);
@@ -425,7 +425,7 @@ chrome.commands.onCommand.addListener(cmd => {
   else if (cmd === "pause-all") pauseAll();
 });
 
-// The worker can be stopped while Audio Hub isn't running; this wakes it to try again.
+// The worker can be stopped while Faderly isn't running; this wakes it to try again.
 chrome.alarms.create("audiohub-reconnect", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener(connect);
 chrome.runtime.onStartup.addListener(connect);

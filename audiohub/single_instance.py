@@ -1,4 +1,4 @@
-"""One Audio Hub at a time, like other Windows apps.
+"""One Faderly at a time, like other Windows apps.
 
 The first copy holds a named mutex. A later launch finds it taken, asks the
 first copy to show its window (a named event), and exits. Names include the
@@ -35,12 +35,12 @@ _show_events = {}  # port -> the event a later launch sets
 
 
 def names(port):
-    base = f"Local\\AudioHub-{port}"  # Local\\: per user session
+    base = f"Local\\Faderly-{port}"  # Local\\: per user session
     return base + "-instance", base + "-show"
 
 
 def acquire(port):
-    """True if this is the only Audio Hub on `port`; it then owns the lock until exit."""
+    """True if this is the only Faderly on `port`; it then owns the lock until exit."""
     mutex_name, event_name = names(port)
     h = kernel32.CreateMutexW(None, False, mutex_name)
     first = ctypes.get_last_error() != ERROR_ALREADY_EXISTS

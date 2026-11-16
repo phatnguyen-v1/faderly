@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "audiohub"
-version = "0.3.0"
+name = "faderly"
+version = "0.9.0"
 description = "One mixer for the sound on all my machines"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,7 @@ dependencies = [
 build = ["pyinstaller>=6.2"]
 
 [project.scripts]
-audiohub = "audiohub.__main__:main"
+faderly = "audiohub.__main__:main"
 
 [tool.setuptools]
 packages = ["audiohub"]

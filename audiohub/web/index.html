@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Audio Hub</title>
+<title>Faderly</title>
 <style>
 :root{
   --bg:#f4f4f6; --card:#fff; --fg:#1c1c1f; --muted:#6c6c74; --line:#e2e2e8;
@@ -162,7 +162,7 @@ h3[hidden]{display:none}
 </head>
 <body>
 <main>
-  <div class="offline">Not connected to the Audio Hub agent. Retrying…</div>
+  <div class="offline">Not connected to Faderly. Retrying…</div>
   <div id="machines"></div>
 </main>
 <script>
@@ -553,7 +553,7 @@ function noteHtml(b, dir){
   const name = esc(b.name);
   if (b.state === "missing") return `
     <b>Control ${name} tabs here</b>
-    <p>Add the Audio Hub extension to ${name}. Already added? Make sure it's switched on in ${name}'s extensions page.</p>
+    <p>Add the Faderly extension to ${name}. Already added? Make sure it's switched on in ${name}'s extensions page.</p>
     <div class="acts"><button class="primary" data-cmd="ext_open_page">Open ${name} extensions</button></div>
     <details><summary>How to add it</summary><ol>
       <li>Open ${name}'s extensions page (button above).</li>
@@ -568,7 +568,7 @@ function noteHtml(b, dir){
     <div class="acts">${b.accepts.includes("reload")
       ? `<button class="primary" data-cmd="ext_update">Update now</button>`
       : `<button class="primary" data-cmd="ext_update">Open ${name} extensions</button>
-         <span>then click ↻ on Audio Hub.</span>`}</div>`;
+         <span>then click ↻ on Faderly.</span>`}</div>`;
   return "";
 }
 
@@ -609,7 +609,7 @@ function render(state){
           <div class="btns">
             <button class="pauseall wide"></button>
             <button class="resetall wide" title="Set every app and tab to 100% and unmute them. The main volume stays as it is.">${ICON.reset}<span>Reset volumes</span></button>
-            <button class="openfull" title="Open Audio Hub">${ICON.expand}</button>
+            <button class="openfull" title="Open Faderly">${ICON.expand}</button>
           </div>
         </div>
         <div class="devmenu" hidden></div>
